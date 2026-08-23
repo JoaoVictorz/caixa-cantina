@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Caixa da Cantina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#FAF6EC;
+    --paper-dark:#F0E9D8;
+    --ink:#1F2A22;
+    --green:#2F4B3C;
+    --green-deep:#1D3128;
+    --amber:#C98A2C;
+    --red:#B8443B;
+    --line: rgba(31,42,34,0.14);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:'Space Mono', monospace;}
+  body{
+    padding-bottom: 84px;
+    min-height:100vh;
+    background-image: radial-gradient(circle at 1px 1px, rgba(31,42,34,0.06) 1px, transparent 0);
+    background-size: 14px 14px;
+  }
+  h1,h2,h3{font-family:'Fraunces', serif; margin:0; letter-spacing:-0.01em;}
+  header.top{
+    padding: 22px 18px 14px; background: var(--green); color: var(--paper);
+    border-bottom: 4px solid var(--green-deep); position: sticky; top:0; z-index: 20;
+  }
+  header.top h1{ font-size: 1.5rem; font-weight:700; }
+  header.top .sub{ font-size:0.72rem; opacity:0.75; margin-top:2px; letter-spacing:0.04em; text-transform:uppercase;}
+  .date-row{ display:flex; align-items:center; gap:10px; margin-top:14px; }
+  .date-row button{
+    background: var(--green-deep); color:var(--paper); border:none; width:34px; height:34px;
+    border-radius:50%; font-size:1.1rem; font-family:'Space Mono',monospace; cursor:pointer;
+  }
+  .date-row input[type=date]{
+    flex:1; background:var(--paper); color:var(--ink); border:none; border-radius:10px;
+    padding:8px 10px; font-family:'Space Mono',monospace; font-size:0.85rem;
+  }
+  main{ padding: 16px; max-width: 560px; margin: 0 auto; }
+  .tabpanel{ display:none; }
+  .tabpanel.active{ display:block; }
+  .receipt{
+    background:#fff; border-radius: 2px; padding: 18px 20px 16px;
+    box-shadow: 0 6px 18px rgba(31,42,34,0.12); position:relative; margin-bottom: 20px;
+  }
+  .receipt::after{
+    content:""; position:absolute; left:0; right:0; bottom:-8px; height:16px;
+    background:
+      linear-gradient(-45deg, transparent 8px, #fff 8px) 0 0/16px 16px repeat-x,
+      linear-gradient(45deg, transparent 8px, #fff 8px) 0 0/16px 16px repeat-x;
+    background-position: bottom;
+  }
+  .receipt h2{ font-size:1rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--green);}
+  .receipt .row{
+    display:flex; justify-content:space-between; font-size:0.9rem; padding:6px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .receipt .row:last-of-type{ border-bottom:none; }
+  .receipt .row.total{ font-weight:700; font-size:1.05rem; margin-top:6px; padding-top:10px; border-top:2px solid var(--ink); border-bottom:none;}
+  .saldo-pos{ color: var(--green); }
+  .saldo-neg{ color: var(--red); }
+  section.block{ margin-bottom: 22px; }
+  section.block h3{
+    font-size: 0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--green);
+    margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  section.block h3::after{ content:""; flex:1; border-top:1px solid var(--line); }
+  section.block p.hint{ font-size:0.75rem; opacity:0.6; margin:-6px 0 12px; line-height:1.4; }
+  .card{ background:var(--paper-dark); border-radius:12px; padding:14px; margin-bottom:12px; border:1px solid var(--line); }
+  label{ display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; opacity:0.7; margin-bottom:5px;}
+  select, input[type=text], input[type=number]{
+    width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line);
+    background:#fff; font-family:'Space Mono',monospace; font-size:0.9rem; color:var(--ink);
+  }
+  .field{ margin-bottom:10px; }
+  .row2{ display:flex; gap:10px; } .row2 > div{ flex:1; }
+  .row3{ display:flex; gap:8px; } .row3 > div{ flex:1; }
+  .stepper{ display:flex; align-items:center; gap:8px; }
+  .stepper button{ width:36px; height:36px; border-radius:8px; border:none; background:var(--green); color:#fff; font-size:1.1rem; cursor:pointer; }
+  .stepper input{ text-align:center; flex:1; }
+  .btn{
+    width:100%; padding:12px; border-radius:9px; border:none; font-family:'Space Mono',monospace;
+    font-weight:700; font-size:0.85rem; letter-spacing:0.03em; cursor:pointer; margin-top:4px;
+  }
+  .btn.venda{ background:var(--green); color:#fff; }
+  .btn.gasto{ background:var(--amber); color:#fff; }
+  .entry{
+    display:flex; justify-content:space-between; align-items:center; background:#fff; border-radius:9px;
+    padding:10px 12px; margin-bottom:8px; border:1px solid var(--line); font-size:0.85rem;
+  }
+  .entry .desc{ display:flex; flex-direction:column; }
+  .entry .desc small{ opacity:0.55; font-size:0.68rem; }
+  .entry .value{ font-weight:700; margin-right:10px; }
+  .entry .value.v{ color:var(--green); }
+  .entry .value.g{ color:var(--amber); }
+  .entry button.del{ background:none; border:none; color:var(--red); font-size:1rem; cursor:pointer; padding:2px 6px; }
+  .empty{ font-size:0.8rem; opacity:0.55; text-align:center; padding:14px 0; }
+  .item-row{
+    display:flex; justify-content:space-between; align-items:center; background:#fff; border-radius:9px;
+    padding:10px 12px; margin-bottom:8px; border:1px solid var(--line); gap:8px;
+  }
+  .item-row .name{ flex:1; font-weight:700; }
+  .item-row .nums{ display:flex; flex-direction:column; align-items:flex-end; font-size:0.72rem; opacity:0.75; }
+  .item-row .nums .p{ font-weight:700; opacity:1; color:var(--green); font-size:0.85rem; }
+  .margin-card{ background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px; border:1px solid var(--line); }
+  .margin-card .top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+  .margin-card .top .name{ font-family:'Fraunces',serif; font-weight:700; font-size:1rem; }
+  .margin-card .top .badge{ font-size:0.72rem; font-weight:700; padding:3px 9px; border-radius:20px; color:#fff; }
+  .badge.good{ background:var(--green); } .badge.mid{ background:var(--amber); } .badge.bad{ background:var(--red); }
+  .margin-card .nums{ display:flex; justify-content:space-between; font-size:0.8rem; opacity:0.85; }
+  .margin-card .bar{ height:6px; border-radius:4px; background:var(--paper-dark); margin-top:8px; overflow:hidden; }
+  .margin-card .bar .fill{ height:100%; background:var(--green); border-radius:4px; }
+  .day-card{ background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px; border:1px solid var(--line); }
+  .day-card .head{ display:flex; justify-content:space-between; align-items:baseline; cursor:pointer; }
+  .day-card .head .d{ font-family:'Fraunces',serif; font-weight:700; font-size:1rem; }
+  .day-card .head .s{ font-weight:700; }
+  .day-card .details{ display:none; margin-top:10px; border-top:1px dashed var(--line); padding-top:10px; font-size:0.82rem;}
+  .day-card.open .details{ display:block; }
+  .day-card .details .r{ display:flex; justify-content:space-between; padding:3px 0; opacity:0.85;}
+  nav.tabbar{
+    position:fixed; bottom:0; left:0; right:0; background:var(--green); display:flex;
+    border-top:4px solid var(--green-deep); z-index:30; padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; color:rgba(250,246,236,0.55); padding:12px 4px 10px;
+    font-family:'Space Mono',monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  nav.tabbar button .ic{ font-size:1.1rem; }
+  nav.tabbar button.active{ color:#fff; }
+  nav.tabbar button.active .ic{ transform: translateY(-2px); }
+  #connError{
+    display:none; background:var(--red); color:#fff; padding:10px 16px; font-size:0.78rem; text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<div id="connError">Não foi possível conectar ao banco de dados. Confira SUPABASE_URL e SUPABASE_ANON_KEY no arquivo index.html.</div>
+
+<header class="top">
+  <h1>Caixa da Cantina</h1>
+  <div class="sub">controle de vendas e investimento</div>
+  <div class="date-row">
+    <button id="prevDay">‹</button>
+    <input type="date" id="dateInput">
+    <button id="nextDay">›</button>
+  </div>
+</header>
+
+<main>
+  <div id="tab-registrar" class="tabpanel active">
+    <div class="receipt" id="dayReceipt"></div>
+    <section class="block">
+      <h3>Registrar venda</h3>
+      <div class="card">
+        <div class="field"><label>Item</label><select id="saleItemSelect"></select></div>
+        <div class="row2">
+          <div class="field">
+            <label>Quantidade</label>
+            <div class="stepper">
+              <button type="button" id="qtyMinus">–</button>
+              <input type="number" id="saleQty" value="1" min="1">
+              <button type="button" id="qtyPlus">+</button>
+            </div>
+          </div>
+          <div class="field"><label>Subtotal</label><input type="text" id="saleSubtotal" disabled value="R$ 0,00"></div>
+        </div>
+        <button class="btn venda" id="addSaleBtn">+ Adicionar venda</button>
+      </div>
+      <div id="salesList"></div>
+    </section>
+    <section class="block">
+      <h3>Registrar investimento / gasto</h3>
+      <p class="hint">Use aqui gastos gerais do dia (ex: compra de insumos, embalagens). O custo de cada item vendido já entra sozinho na aba Retorno.</p>
+      <div class="card">
+        <div class="field"><label>Descrição</label><input type="text" id="investDesc" placeholder="Ex: compra de pão e refrigerante"></div>
+        <div class="field"><label>Valor (R$)</label><input type="number" id="investValue" placeholder="0,00" step="0.01" min="0"></div>
+        <button class="btn gasto" id="addInvestBtn">+ Adicionar gasto</button>
+      </div>
+      <div id="investList"></div>
+    </section>
+  </div>
+
+  <div id="tab-itens" class="tabpanel">
+    <section class="block">
+      <h3>Cadastrar item</h3>
+      <div class="card">
+        <div class="field"><label>Nome do item</label><input type="text" id="itemName" placeholder="Ex: Coxinha"></div>
+        <div class="row3">
+          <div class="field"><label>Custo unitário (R$)</label><input type="number" id="itemCost" placeholder="0,00" step="0.01" min="0"></div>
+          <div class="field"><label>Preço de venda (R$)</label><input type="number" id="itemPrice" placeholder="0,00" step="0.01" min="0"></div>
+        </div>
+        <button class="btn venda" id="addItemBtn">+ Adicionar item</button>
+      </div>
+    </section>
+    <section class="block"><h3>Itens cadastrados</h3><div id="itemsList"></div></section>
+  </div>
+
+  <div id="tab-retorno" class="tabpanel">
+    <div class="receipt" id="returnReceipt"></div>
+    <section class="block">
+      <h3>Margem por item</h3>
+      <p class="hint">Quanto cada item rende considerando o que ele custa e o preço de venda.</p>
+      <div id="marginList"></div>
+    </section>
+  </div>
+
+  <div id="tab-historico" class="tabpanel">
+    <div class="receipt" id="totalReceipt"></div>
+    <section class="block"><h3>Balancete por dia</h3><div id="historyList"></div></section>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <button data-tab="registrar" class="active"><span class="ic">🧾</span>Registrar</button>
+  <button data-tab="itens"><span class="ic">🍪</span>Itens</button>
+  <button data-tab="retorno"><span class="ic">📈</span>Retorno</button>
+  <button data-tab="historico"><span class="ic">📊</span>Histórico</button>
+</nav>
+
+<script>
+/* ============ CONFIGURAÇÃO DO SUPABASE ============
+   Troque pelos valores do SEU projeto (Project Settings > API no painel do Supabase). */
+const SUPABASE_URL = 'buavlidtfgnckwklwihr';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1YXZsaWR0ZmduY2t3a2x3aWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MDYwMDEsImV4cCI6MjEwMzA4MjAwMX0.EY_Nh8f7FJge_O5Nt1vHraTOKa5-qxKWdmn1kT8NLjw';
+/* =================================================== */
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let items = [];
+let records = [];
+let selectedDate = todayStr();
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fmtMoney(n){ return 'R$ ' + (Math.round((n+Number.EPSILON)*100)/100).toFixed(2).replace('.',','); }
+function fmtDateDisplay(iso){ const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+y; }
+
+async function loadAll(){
+  try{
+    const { data: itemsData, error: e1 } = await sb.from('items').select('*').order('created_at');
+    if(e1) throw e1;
+    items = itemsData || [];
+    const { data: recData, error: e2 } = await sb.from('records').select('*').order('created_at');
+    if(e2) throw e2;
+    records = recData || [];
+  }catch(err){
+    console.error(err);
+    document.getElementById('connError').style.display = 'block';
+  }
+}
+
+document.querySelectorAll('nav.tabbar button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'historico') renderHistory();
+    if(btn.dataset.tab === 'retorno') renderRetorno();
+  });
+});
+
+const dateInput = document.getElementById('dateInput');
+dateInput.value = selectedDate;
+dateInput.addEventListener('change', ()=>{ selectedDate = dateInput.value || todayStr(); renderDay(); });
+document.getElementById('prevDay').addEventListener('click', ()=>{
+  const d = new Date(selectedDate+'T00:00:00'); d.setDate(d.getDate()-1);
+  selectedDate = d.toISOString().slice(0,10); dateInput.value = selectedDate; renderDay();
+});
+document.getElementById('nextDay').addEventListener('click', ()=>{
+  const d = new Date(selectedDate+'T00:00:00'); d.setDate(d.getDate()+1);
+  selectedDate = d.toISOString().slice(0,10); dateInput.value = selectedDate; renderDay();
+});
+
+function populateItemSelect(){
+  const sel = document.getElementById('saleItemSelect');
+  sel.innerHTML = '';
+  if(items.length===0){ sel.innerHTML = '<option value="">Cadastre um item primeiro</option>'; return; }
+  items.forEach(it=>{
+    const opt = document.createElement('option');
+    opt.value = it.id;
+    opt.textContent = it.name + ' — ' + fmtMoney(it.price);
+    sel.appendChild(opt);
+  });
+  updateSubtotal();
+}
+function renderItemsList(){
+  const list = document.getElementById('itemsList');
+  list.innerHTML = '';
+  if(items.length===0){ list.innerHTML = '<div class="empty">Nenhum item cadastrado ainda.</div>'; return; }
+  items.forEach(it=>{
+    const row = document.createElement('div'); row.className = 'item-row';
+    row.innerHTML = `<span class="name">${it.name}</span>
+      <span class="nums"><span>custo ${fmtMoney(it.cost||0)}</span><span class="p">${fmtMoney(it.price)}</span></span>
+      <button class="del">✕</button>`;
+    row.querySelector('.del').addEventListener('click', async ()=>{
+      await sb.from('items').delete().eq('id', it.id);
+      items = items.filter(x=>x.id!==it.id);
+      renderItemsList(); populateItemSelect();
+    });
+    list.appendChild(row);
+  });
+}
+document.getElementById('addItemBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('itemName').value.trim();
+  const cost = parseFloat(document.getElementById('itemCost').value) || 0;
+  const price = parseFloat(document.getElementById('itemPrice').value);
+  if(!name || isNaN(price) || price<0){ alert('Preencha nome e preço de venda válidos.'); return; }
+  const { data, error } = await sb.from('items').insert({ name, cost, price }).select().single();
+  if(error){ alert('Erro ao salvar item.'); console.error(error); return; }
+  items.push(data);
+  document.getElementById('itemName').value='';
+  document.getElementById('itemCost').value='';
+  document.getElementById('itemPrice').value='';
+  renderItemsList(); populateItemSelect();
+});
+
+function updateSubtotal(){
+  const sel = document.getElementById('saleItemSelect');
+  const qty = parseInt(document.getElementById('saleQty').value) || 0;
+  const it = items.find(x=>x.id===sel.value);
+  document.getElementById('saleSubtotal').value = fmtMoney(it ? it.price*qty : 0);
+}
+document.getElementById('saleItemSelect').addEventListener('change', updateSubtotal);
+document.getElementById('saleQty').addEventListener('input', updateSubtotal);
+document.getElementById('qtyPlus').addEventListener('click', ()=>{
+  const q = document.getElementById('saleQty'); q.value = (parseInt(q.value)||0)+1; updateSubtotal();
+});
+document.getElementById('qtyMinus').addEventListener('click', ()=>{
+  const q = document.getElementById('saleQty'); q.value = Math.max(1,(parseInt(q.value)||1)-1); updateSubtotal();
+});
+document.getElementById('addSaleBtn').addEventListener('click', async ()=>{
+  const sel = document.getElementById('saleItemSelect');
+  const it = items.find(x=>x.id===sel.value);
+  const qty = parseInt(document.getElementById('saleQty').value)||0;
+  if(!it || qty<=0){ alert('Selecione um item e quantidade válida.'); return; }
+  const rec = { date:selectedDate, type:'venda', item_id:it.id, item_name:it.name, qty, value: it.price*qty, cost:(it.cost||0)*qty };
+  const { data, error } = await sb.from('records').insert(rec).select().single();
+  if(error){ alert('Erro ao salvar venda.'); console.error(error); return; }
+  records.push(data);
+  document.getElementById('saleQty').value = 1; updateSubtotal(); renderDay();
+});
+
+document.getElementById('addInvestBtn').addEventListener('click', async ()=>{
+  const desc = document.getElementById('investDesc').value.trim();
+  const value = parseFloat(document.getElementById('investValue').value);
+  if(!desc || isNaN(value) || value<0){ alert('Preencha descrição e valor válidos.'); return; }
+  const rec = { date:selectedDate, type:'gasto', description:desc, value };
+  const { data, error } = await sb.from('records').insert(rec).select().single();
+  if(error){ alert('Erro ao salvar gasto.'); console.error(error); return; }
+  records.push(data);
+  document.getElementById('investDesc').value=''; document.getElementById('investValue').value=''; renderDay();
+});
+
+async function deleteRecord(id){
+  await sb.from('records').delete().eq('id', id);
+  records = records.filter(x=>x.id!==id);
+}
+
+function renderDay(){
+  dateInput.value = selectedDate;
+  const dayRecords = records.filter(r=>r.date===selectedDate);
+  const vendas = dayRecords.filter(r=>r.type==='venda');
+  const gastos = dayRecords.filter(r=>r.type==='gasto');
+  const totalVendas = vendas.reduce((s,r)=>s+Number(r.value),0);
+  const totalGastos = gastos.reduce((s,r)=>s+Number(r.value),0);
+  const saldo = totalVendas - totalGastos;
+
+  document.getElementById('dayReceipt').innerHTML = `
+    <h2>Resumo — ${fmtDateDisplay(selectedDate)}</h2>
+    <div class="row"><span>Total vendido</span><span>${fmtMoney(totalVendas)}</span></div>
+    <div class="row"><span>Total investido/gasto</span><span>${fmtMoney(totalGastos)}</span></div>
+    <div class="row total"><span>${saldo>=0?'Lucro':'Prejuízo'}</span>
+      <span class="${saldo>=0?'saldo-pos':'saldo-neg'}">${fmtMoney(Math.abs(saldo))}</span></div>`;
+
+  const salesList = document.getElementById('salesList');
+  salesList.innerHTML = vendas.length ? '' : '<div class="empty">Nenhuma venda registrada neste dia.</div>';
+  vendas.forEach(r=>{
+    const e = document.createElement('div'); e.className='entry';
+    e.innerHTML = `<div class="desc"><span>${r.item_name}</span><small>${r.qty}x</small></div>
+      <div><span class="value v">${fmtMoney(r.value)}</span><button class="del">✕</button></div>`;
+    e.querySelector('.del').addEventListener('click', async ()=>{ await deleteRecord(r.id); renderDay(); });
+    salesList.appendChild(e);
+  });
+
+  const investList = document.getElementById('investList');
+  investList.innerHTML = gastos.length ? '' : '<div class="empty">Nenhum gasto registrado neste dia.</div>';
+  gastos.forEach(r=>{
+    const e = document.createElement('div'); e.className='entry';
+    e.innerHTML = `<div class="desc"><span>${r.description}</span></div>
+      <div><span class="value g">${fmtMoney(r.value)}</span><button class="del">✕</button></div>`;
+    e.querySelector('.del').addEventListener('click', async ()=>{ await deleteRecord(r.id); renderDay(); });
+    investList.appendChild(e);
+  });
+}
+
+function renderRetorno(){
+  const vendas = records.filter(r=>r.type==='venda');
+  const gastos = records.filter(r=>r.type==='gasto');
+  const totalVendido = vendas.reduce((s,r)=>s+Number(r.value),0);
+  const custoProdutos = vendas.reduce((s,r)=>s+Number(r.cost||0),0);
+  const outrosGastos = gastos.reduce((s,r)=>s+Number(r.value),0);
+  const lucroBruto = totalVendido - custoProdutos;
+  const lucroLiquido = lucroBruto - outrosGastos;
+
+  document.getElementById('returnReceipt').innerHTML = `
+    <h2>Retorno acumulado</h2>
+    <div class="row"><span>Total vendido</span><span>${fmtMoney(totalVendido)}</span></div>
+    <div class="row"><span>Custo dos produtos vendidos</span><span>${fmtMoney(custoProdutos)}</span></div>
+    <div class="row"><span>Lucro bruto</span><span>${fmtMoney(lucroBruto)}</span></div>
+    <div class="row"><span>Outros gastos/investimentos</span><span>${fmtMoney(outrosGastos)}</span></div>
+    <div class="row total"><span>${lucroLiquido>=0?'Lucro líquido':'Prejuízo líquido'}</span>
+      <span class="${lucroLiquido>=0?'saldo-pos':'saldo-neg'}">${fmtMoney(Math.abs(lucroLiquido))}</span></div>`;
+
+  const list = document.getElementById('marginList');
+  list.innerHTML = '';
+  if(items.length===0){ list.innerHTML = '<div class="empty">Cadastre itens com custo e preço na aba Itens pra ver a margem aqui.</div>'; return; }
+  const sorted = [...items].sort((a,b)=>{
+    const ma = a.price>0 ? (a.price-(a.cost||0))/a.price : -1;
+    const mb = b.price>0 ? (b.price-(b.cost||0))/b.price : -1;
+    return mb-ma;
+  });
+  sorted.forEach(it=>{
+    const cost = Number(it.cost||0), price = Number(it.price);
+    const lucroUnit = price - cost;
+    const margem = price>0 ? (lucroUnit/price*100) : 0;
+    let badgeClass = 'bad';
+    if(margem >= 50) badgeClass = 'good'; else if(margem >= 25) badgeClass = 'mid';
+    const barWidth = Math.max(0, Math.min(100, margem));
+    const card = document.createElement('div'); card.className = 'margin-card';
+    card.innerHTML = `
+      <div class="top"><span class="name">${it.name}</span><span class="badge ${badgeClass}">${margem.toFixed(0)}% margem</span></div>
+      <div class="nums">
+        <span>Custo ${fmtMoney(cost)}</span><span>Venda ${fmtMoney(price)}</span>
+        <span class="${lucroUnit>=0?'saldo-pos':'saldo-neg'}">Lucro/un ${fmtMoney(lucroUnit)}</span>
+      </div>
+      <div class="bar"><div class="fill" style="width:${barWidth}%"></div></div>`;
+    list.appendChild(card);
+  });
+}
+
+function renderHistory(){
+  const totalVendas = records.filter(r=>r.type==='venda').reduce((s,r)=>s+Number(r.value),0);
+  const totalGastos = records.filter(r=>r.type==='gasto').reduce((s,r)=>s+Number(r.value),0);
+  const saldo = totalVendas - totalGastos;
+  document.getElementById('totalReceipt').innerHTML = `
+    <h2>Balancete geral</h2>
+    <div class="row"><span>Total vendido (tudo)</span><span>${fmtMoney(totalVendas)}</span></div>
+    <div class="row"><span>Total investido (tudo)</span><span>${fmtMoney(totalGastos)}</span></div>
+    <div class="row total"><span>${saldo>=0?'Lucro acumulado':'Prejuízo acumulado'}</span>
+      <span class="${saldo>=0?'saldo-pos':'saldo-neg'}">${fmtMoney(Math.abs(saldo))}</span></div>`;
+
+  const dates = [...new Set(records.map(r=>r.date))].sort((a,b)=>b.localeCompare(a));
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  if(dates.length===0){ list.innerHTML = '<div class="empty">Sem registros ainda.</div>'; return; }
+  dates.forEach(date=>{
+    const dayRecords = records.filter(r=>r.date===date);
+    const vendas = dayRecords.filter(r=>r.type==='venda');
+    const gastos = dayRecords.filter(r=>r.type==='gasto');
+    const tv = vendas.reduce((s,r)=>s+Number(r.value),0);
+    const tg = gastos.reduce((s,r)=>s+Number(r.value),0);
+    const s = tv-tg;
+    const card = document.createElement('div'); card.className = 'day-card';
+    card.innerHTML = `
+      <div class="head"><span class="d">${fmtDateDisplay(date)}</span>
+        <span class="s ${s>=0?'saldo-pos':'saldo-neg'}">${s>=0?'+':'-'}${fmtMoney(Math.abs(s))}</span></div>
+      <div class="details">
+        <div class="r"><span>Vendido</span><span>${fmtMoney(tv)}</span></div>
+        <div class="r"><span>Investido/gasto</span><span>${fmtMoney(tg)}</span></div>
+        ${vendas.map(r=>`<div class="r"><span>· ${r.item_name} (${r.qty}x)</span><span>${fmtMoney(r.value)}</span></div>`).join('')}
+        ${gastos.map(r=>`<div class="r"><span>· ${r.description}</span><span>${fmtMoney(r.value)}</span></div>`).join('')}
+      </div>`;
+    card.querySelector('.head').addEventListener('click', ()=> card.classList.toggle('open'));
+    list.appendChild(card);
+  });
+}
+
+(async function init(){
+  await loadAll();
+  populateItemSelect();
+  renderItemsList();
+  renderDay();
+})();
+</script>
+</body>
+</html>
